@@ -1,0 +1,1282 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>訪問営業ログ（切り口別評価・検証・レーダー）</title>
+  <style>
+    :root{
+      --bg:#f6fbff;
+      --card:#ffffff;
+      --text:#0c1b33;
+      --muted:#5c6a85;
+      --line:#d7e4ff;
+
+      --accent:#2f7cf6;   /* 実施率 */
+      --good:#18b981;     /* 成功率 */
+      --warn:#f59e0b;     /* 平均評価 */
+
+      --radius:16px;
+      --shadow: 0 10px 22px rgba(18,60,120,.10);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      background: radial-gradient(900px 600px at 20% 0%, #dff0ff 0%, var(--bg) 55%);
+      color:var(--text);
+    }
+    header{
+      padding:14px 14px 10px;
+      position:sticky; top:0;
+      background: rgba(246,251,255,.88);
+      backdrop-filter: blur(10px);
+      border-bottom:1px solid var(--line);
+      z-index:10;
+    }
+    h1{margin:0; font-size:16px}
+    .sub{margin:6px 0 0; color:var(--muted); font-size:12px; line-height:1.4}
+    main{padding:12px 12px 40px; max-width:1100px; margin:0 auto}
+    .grid{display:grid; gap:12px; grid-template-columns:1fr;}
+    @media (min-width: 980px){ .grid{grid-template-columns: 420px 1fr;} }
+
+    .card{
+      background: var(--card);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .hd{
+      padding:12px 12px 10px;
+      border-bottom:1px solid var(--line);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+    }
+    .ttl{font-weight:900; font-size:13px}
+    .pill{
+      display:inline-flex; align-items:center;
+      padding:6px 10px;
+      background: #eef6ff;
+      border:1px solid #d2e5ff;
+      border-radius:999px;
+      font-size:12px; color:#2a4a7a;
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .bd{padding:12px}
+    label{display:block; font-size:12px; color:var(--muted); margin:10px 0 6px}
+    input[type="date"], input[type="text"], textarea, select{
+      width:100%;
+      background: #ffffff;
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px 12px;
+      outline:none;
+      font-size:14px;
+    }
+    textarea{min-height:74px; resize:vertical}
+    .row{display:grid; gap:10px; grid-template-columns:1fr 1fr}
+    .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+    button{
+      background: rgba(47,124,246,.10);
+      color: #0b2a55;
+      border:1px solid rgba(47,124,246,.35);
+      border-radius:16px;
+      padding:12px 14px;
+      font-weight:900;
+      cursor:pointer;
+      user-select:none;
+      font-size:14px;
+    }
+    button.secondary{
+      background:#f3f7ff;
+      border-color:#d7e4ff;
+      color:#22406a;
+    }
+    button.danger{
+      background: rgba(239,68,68,.10);
+      border-color: rgba(239,68,68,.30);
+      color:#5a1111;
+    }
+    .note{color:var(--muted); font-size:12px; line-height:1.6; margin-top:10px}
+    .small{font-size:11px; color:var(--muted)}
+
+    /* 評価ブロック（切り口ごと） */
+    .factor{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:#fbfdff;
+      padding:10px 10px;
+      box-shadow: 0 6px 18px rgba(18,60,120,.06);
+      margin-top:10px;
+    }
+    .factor .top{
+      display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+      margin-bottom:8px;
+    }
+    .factor .name{font-weight:1000; font-size:13px}
+    .factor .hint{font-size:11px; color:var(--muted); line-height:1.35}
+    .stars{display:flex; gap:8px; flex-wrap:wrap}
+    .star{
+      flex: 1 1 54px;
+      text-align:center;
+      padding:10px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-weight:1000;
+      cursor:pointer;
+      user-select:none;
+      font-size:12px;
+    }
+    .star.active{
+      border-color: rgba(47,124,246,.55);
+      background: rgba(47,124,246,.10);
+    }
+    .star.zero{
+      flex: 1 1 80px;
+    }
+
+    .filters{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+      background: #f8fbff;
+    }
+    .filters select, .filters input[type="text"], .filters input[type="date"]{
+      max-width: 220px;
+      padding:10px 12px;
+      border-radius:14px;
+      font-size:13px;
+    }
+    .inline{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .section{padding:12px; border-bottom:1px solid var(--line); background:#fff}
+
+    .kpi{display:grid; gap:10px; grid-template-columns: 1fr 1fr;}
+    @media (min-width: 520px){ .kpi{grid-template-columns: 1fr 1fr 1fr 1fr;} }
+    .kpi .box{
+      border:1px solid var(--line);
+      background: #fbfdff;
+      border-radius:16px;
+      padding:10px 10px;
+    }
+    .kpi .k{font-size:12px; color:var(--muted); font-weight:900}
+    .kpi .v{font-size:20px; font-weight:1000; margin-top:4px}
+
+    table{width:100%; border-collapse:collapse; font-size:12px}
+    th, td{border-bottom:1px solid #e6efff; padding:8px 6px; text-align:left}
+    th{color:var(--muted); font-weight:900}
+    .right{text-align:right}
+
+    details.day{
+      margin:10px 0;
+      border:1px solid var(--line);
+      border-radius:16px;
+      overflow:hidden;
+      background:#fff;
+      box-shadow: 0 6px 18px rgba(18,60,120,.06);
+    }
+    summary{
+      list-style:none;
+      cursor:pointer;
+      padding:12px 12px;
+      display:flex; justify-content:space-between; gap:10px;
+      background:#f8fbff;
+      border-bottom:1px solid var(--line);
+    }
+    summary::-webkit-details-marker{display:none}
+    .daymeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .daytitle{font-weight:1000}
+
+    .tag{
+      display:inline-flex; align-items:center;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:11px;
+      border:1px solid #d7e4ff;
+      background:#eef6ff;
+      color:#2a4a7a;
+      font-weight:900;
+    }
+    .tag.good{background: rgba(24,185,129,.10); border-color: rgba(24,185,129,.25); color:#0c513a}
+    .tag.bad{background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.25); color:#611a1a}
+    .tag.warn{background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.25); color:#5c3a06}
+
+    .list{padding:0 10px 10px}
+    .item{
+      border-top:1px solid #e6efff;
+      padding:10px 6px;
+      display:grid;
+      grid-template-columns: 58px 1fr;
+      gap:10px;
+    }
+    .no{display:flex; justify-content:center; align-items:flex-start; font-weight:1000; color:#123c78;}
+    .meta{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .txt{margin-top:6px; white-space:pre-wrap; line-height:1.55; font-size:13px}
+    .actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+
+    .mini{display:grid; gap:12px; grid-template-columns:1fr}
+    @media (min-width: 860px){ .mini{grid-template-columns: 1.05fr .95fr;} }
+    .panel{
+      border:1px solid var(--line);
+      background:#fbfdff;
+      border-radius:16px;
+      padding:12px;
+      box-shadow: 0 6px 18px rgba(18,60,120,.06);
+    }
+    canvas{width:100%; height:auto; display:block}
+    .legend{display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; color:var(--muted); font-size:12px}
+    .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:6px;border:1px solid rgba(0,0,0,.12)}
+
+    .toast{
+      position:fixed; left:50%; bottom:16px; transform:translateX(-50%);
+      background: rgba(15,23,42,.92);
+      color:#fff;
+      padding:10px 12px;
+      border-radius:999px;
+      font-size:12px;
+      opacity:0; pointer-events:none;
+      transition:.25s opacity ease,.25s transform ease;
+      z-index:99;
+    }
+    .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px)}
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>訪問営業ログ（切り口別評価・検証・レーダー）</h1>
+  <div class="sub">4切り口それぞれ「未実施(0)〜5」評価。切り口別に実施率・平均評価・（実施時）成功率を自動検証します。</div>
+</header>
+
+<main>
+  <div class="grid">
+    <!-- 入力 -->
+    <section class="card">
+      <div class="hd">
+        <div class="ttl">入力（スマホ向け）</div>
+        <span class="pill" id="nextNoPill">日内No: -</span>
+      </div>
+      <div class="bd">
+        <div class="row">
+          <div>
+            <label for="visitDate">訪問日（カレンダー）</label>
+            <input type="date" id="visitDate" />
+          </div>
+          <div>
+            <label for="visitSeqSelect">訪問日内No（選択）</label>
+            <select id="visitSeqSelect"></select>
+            <div class="btns" style="margin-top:8px">
+              <button class="secondary" id="seqPlusBtn" type="button">+1</button>
+              <button class="secondary" id="seqAutoBtn" type="button">自動（次のNo）</button>
+            </div>
+          </div>
+        </div>
+
+        <label for="stayMinutes">滞在時間（3分単位・最大15分）</label>
+        <select id="stayMinutes">
+          <option value="0">0分（未実施）</option>
+          <option value="3">3分</option>
+          <option value="6">6分</option>
+          <option value="9">9分</option>
+          <option value="12">12分</option>
+          <option value="15">15分</option>
+        </select>
+
+        <!-- 4切り口の評価 -->
+        <div class="factor" id="factor_time">
+          <div class="top">
+            <div>
+              <div class="name">1. 滞在時間（進め方の質）</div>
+              <div class="hint">短時間で要点を伝えられたか／会話のテンポなど</div>
+            </div>
+            <div class="pill" id="pill_time">評価: 0</div>
+          </div>
+          <div class="stars" data-factor="time"></div>
+        </div>
+
+        <div class="factor" id="factor_issue">
+          <div class="top">
+            <div>
+              <div class="name">2. お客様の課題（困りごと）ヒヤリング</div>
+              <div class="hint">相手の悩みを引き出せたか／深掘りできたか</div>
+            </div>
+            <div class="pill" id="pill_issue">評価: 0</div>
+          </div>
+          <div class="stars" data-factor="issue"></div>
+        </div>
+
+        <div class="factor" id="factor_family">
+          <div class="top">
+            <div>
+              <div class="name">3. 家族構成のヒヤリング</div>
+              <div class="hint">誰向けに提案すべきか把握できたか</div>
+            </div>
+            <div class="pill" id="pill_family">評価: 0</div>
+          </div>
+          <div class="stars" data-factor="family"></div>
+        </div>
+
+        <div class="factor" id="factor_product">
+          <div class="top">
+            <div>
+              <div class="name">4. 商品説明</div>
+              <div class="hint">相手の課題に合わせて説明できたか／押し付けになってないか</div>
+            </div>
+            <div class="pill" id="pill_product">評価: 0</div>
+          </div>
+          <div class="stars" data-factor="product"></div>
+        </div>
+
+        <label for="approach">アプローチ内容（自由記述：要点）</label>
+        <textarea id="approach" placeholder="例：困りごと→買い物が大変／家族→小学生2人／提案→朝の習慣化セット など"></textarea>
+
+        <div class="row">
+          <div>
+            <label for="contract">成功（契約成立）</label>
+            <select id="contract">
+              <option value="0">未成立</option>
+              <option value="1">成立</option>
+            </select>
+          </div>
+          <div>
+            <label for="quickTag">クイック（任意）</label>
+            <select id="quickTag">
+              <option value="">（選択なし）</option>
+              <option value="初回訪問">初回訪問</option>
+              <option value="再訪">再訪</option>
+              <option value="サンプル渡し">サンプル渡し</option>
+              <option value="不在">不在</option>
+              <option value="時間なし">時間なし</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="memo">一言メモ（改善メモ）</label>
+        <input type="text" id="memo" placeholder="例：家族ヒヤリング不足→次回は最初に聞く" />
+
+        <div class="btns">
+          <button id="addBtn">追加する</button>
+          <button class="secondary" id="resetBtn" type="button">入力クリア</button>
+        </div>
+
+        <div class="btns" style="margin-top:12px">
+          <button class="secondary" id="exportBtn" type="button">JSON出力</button>
+          <button class="secondary" id="exportCsvBtn" type="button">CSV出力</button>
+          <button class="secondary" id="importBtn" type="button">JSON取込</button>
+          <button class="danger" id="wipeBtn" type="button">全削除</button>
+          <input id="fileInput" type="file" accept="application/json" style="display:none" />
+        </div>
+
+        <div class="note">※ データは端末内保存（localStorage）です。必要に応じてJSON/CSVで退避してください。</div>
+        <div class="small" id="storageInfo"></div>
+      </div>
+    </section>
+
+    <!-- 検証＋一覧 -->
+    <section class="card">
+      <div class="hd">
+        <div class="ttl">検証・一覧</div>
+        <span class="pill" id="countPill">0件</span>
+      </div>
+
+      <div class="filters">
+        <div class="inline">
+          <span class="small">期間</span>
+          <input type="date" id="fromDate" />
+          <span class="small">〜</span>
+          <input type="date" id="toDate" />
+          <button class="secondary" id="todayRangeBtn" type="button">今日</button>
+          <button class="secondary" id="weekRangeBtn" type="button">今週</button>
+          <button class="secondary" id="monthRangeBtn" type="button">今月</button>
+        </div>
+
+        <div class="inline">
+          <select id="filterContract">
+            <option value="all">成功：すべて</option>
+            <option value="1">成功：成立のみ</option>
+            <option value="0">成功：未成立のみ</option>
+          </select>
+          <select id="filterMinRating">
+            <option value="0">評価下限：0（未実施含む）</option>
+            <option value="3">評価下限：3以上</option>
+            <option value="4">評価下限：4以上</option>
+            <option value="5">評価下限：5のみ</option>
+          </select>
+          <select id="filterFactor">
+            <option value="all">切り口：すべて</option>
+            <option value="time">滞在時間</option>
+            <option value="issue">困りごとヒヤリング</option>
+            <option value="family">家族構成ヒヤリング</option>
+            <option value="product">商品説明</option>
+          </select>
+          <input type="text" id="q" placeholder="検索（内容・メモ）" />
+          <button class="secondary" id="clearFiltersBtn" type="button">解除</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="kpi">
+          <div class="box"><div class="k">訪問（表示中）</div><div class="v" id="kpiVisits">0</div></div>
+          <div class="box"><div class="k">成功（成立）</div><div class="v" id="kpiDeals">0</div></div>
+          <div class="box"><div class="k">成功率</div><div class="v" id="kpiRate">0%</div></div>
+          <div class="box"><div class="k">平均評価（4切り口の平均）</div><div class="v" id="kpiAvg">-</div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="mini">
+          <div class="panel">
+            <div style="font-weight:1000; margin-bottom:8px;">切り口別検証（表示中）</div>
+            <div class="small" style="margin-bottom:6px;">
+              実施＝評価が1以上（滞在時間は minutes>0 でも実施扱い）。
+            </div>
+            <div id="factorTable"></div>
+          </div>
+
+          <div class="panel">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px;">
+              <div style="font-weight:1000;">バランスチャート（レーダー）</div>
+              <select id="radarMode" style="max-width:240px;">
+                <option value="run_x_quality">実施率 × 平均評価</option>
+                <option value="run">実施率のみ</option>
+                <option value="quality">平均評価のみ</option>
+                <option value="success">（実施時）成功率のみ</option>
+              </select>
+            </div>
+            <canvas id="radar" width="520" height="420"></canvas>
+            <div class="legend">
+              <span><span class="dot" id="dotA"></span>実施率</span>
+              <span><span class="dot" id="dotB"></span>平均評価</span>
+              <span><span class="dot" id="dotC"></span>成功率</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bd" id="listArea"></div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const KEY = "visit_sales_logs_factors_v2";
+
+  // 4切り口
+  const FACTORS = [
+    {id:"time",   name:"滞在時間", short:"滞在", colorVar:"--accent"},
+    {id:"issue",  name:"困りごとヒヤリング", short:"課題", colorVar:"--accent"},
+    {id:"family", name:"家族構成ヒヤリング", short:"家族", colorVar:"--accent"},
+    {id:"product",name:"商品説明", short:"商品", colorVar:"--accent"},
+  ];
+
+  const colorRun = cssVar("--accent");
+  const colorQuality = cssVar("--warn");
+  const colorSuccess = cssVar("--good");
+  document.getElementById("dotA").style.background = colorRun;
+  document.getElementById("dotB").style.background = colorQuality;
+  document.getElementById("dotC").style.background = colorSuccess;
+
+  /** @type {{id:string,date:string,seq:number,stayMinutes:number,ratings:{time:number,issue:number,family:number,product:number},approach:string,contract:0|1,memo:string,tag?:string,createdAt:number}[]} */
+  let logs = load();
+
+  // elements
+  const elVisitDate = document.getElementById("visitDate");
+  const elVisitSeqSelect = document.getElementById("visitSeqSelect");
+  const elNextNoPill = document.getElementById("nextNoPill");
+  const elStayMinutes = document.getElementById("stayMinutes");
+
+  const elApproach = document.getElementById("approach");
+  const elMemo = document.getElementById("memo");
+  const elContract = document.getElementById("contract");
+  const elQuickTag = document.getElementById("quickTag");
+
+  const elToast = document.getElementById("toast");
+  const elStorageInfo = document.getElementById("storageInfo");
+
+  const elCountPill = document.getElementById("countPill");
+  const elListArea = document.getElementById("listArea");
+
+  const elFromDate = document.getElementById("fromDate");
+  const elToDate = document.getElementById("toDate");
+  const elFilterContract = document.getElementById("filterContract");
+  const elFilterMinRating = document.getElementById("filterMinRating");
+  const elFilterFactor = document.getElementById("filterFactor");
+  const elQ = document.getElementById("q");
+
+  const elKpiVisits = document.getElementById("kpiVisits");
+  const elKpiDeals = document.getElementById("kpiDeals");
+  const elKpiRate = document.getElementById("kpiRate");
+  const elKpiAvg = document.getElementById("kpiAvg");
+
+  const elFactorTable = document.getElementById("factorTable");
+  const elRadarMode = document.getElementById("radarMode");
+  const elRadar = document.getElementById("radar");
+
+  // rating state (0..5)
+  const ratings = {time:0, issue:0, family:0, product:0};
+
+  // init seq select
+  buildSeqOptions(20);
+
+  // init date (today)
+  const today = toISODate(new Date());
+  elVisitDate.value = today;
+
+  // init filters: last 14 days
+  const d = new Date();
+  const from = new Date(d.getFullYear(), d.getMonth(), d.getDate()-13);
+  elFromDate.value = toISODate(from);
+  elToDate.value = today;
+
+  // render rating stars per factor
+  renderFactorStars();
+
+  // set seq auto
+  syncSeqAuto(true);
+
+  // initial render
+  renderAll();
+
+  // events
+  elVisitDate.addEventListener("change", () => syncSeqAuto(true));
+  document.getElementById("seqAutoBtn").addEventListener("click", () => syncSeqAuto(true));
+  document.getElementById("seqPlusBtn").addEventListener("click", () => {
+    const cur = Number(elVisitSeqSelect.value || "1");
+    ensureSeqOptions(cur+1);
+    elVisitSeqSelect.value = String(cur+1);
+    elNextNoPill.textContent = "日内No: " + elVisitSeqSelect.value;
+  });
+
+  document.getElementById("addBtn").addEventListener("click", addLog);
+  document.getElementById("resetBtn").addEventListener("click", resetForm);
+
+  document.getElementById("exportBtn").addEventListener("click", exportJSON);
+  document.getElementById("exportCsvBtn").addEventListener("click", exportCSV);
+  document.getElementById("importBtn").addEventListener("click", () => document.getElementById("fileInput").click());
+  document.getElementById("fileInput").addEventListener("change", importJSON);
+  document.getElementById("wipeBtn").addEventListener("click", wipeAll);
+
+  [elFromDate, elToDate, elFilterContract, elFilterMinRating, elFilterFactor, elQ, elRadarMode].forEach(el=>{
+    el.addEventListener("input", renderAll);
+    el.addEventListener("change", renderAll);
+  });
+
+  document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+    elFilterContract.value = "all";
+    elFilterMinRating.value = "0";
+    elFilterFactor.value = "all";
+    elQ.value = "";
+    renderAll();
+  });
+
+  document.getElementById("todayRangeBtn").addEventListener("click", () => {
+    elFromDate.value = today; elToDate.value = today; renderAll();
+  });
+  document.getElementById("weekRangeBtn").addEventListener("click", () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMon = (day === 0) ? 6 : (day-1);
+    const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate()-diffToMon);
+    elFromDate.value = toISODate(mon);
+    elToDate.value = toISODate(now);
+    renderAll();
+  });
+  document.getElementById("monthRangeBtn").addEventListener("click", () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    elFromDate.value = toISODate(first);
+    elToDate.value = toISODate(now);
+    renderAll();
+  });
+
+  window.addEventListener("resize", () => renderAll(false));
+
+  function buildSeqOptions(max=20){
+    elVisitSeqSelect.innerHTML = "";
+    for(let i=1;i<=max;i++){
+      const op=document.createElement("option");
+      op.value=String(i);
+      op.textContent=String(i);
+      elVisitSeqSelect.appendChild(op);
+    }
+  }
+  function ensureSeqOptions(needed){
+    const max = Number(elVisitSeqSelect.options[elVisitSeqSelect.options.length-1]?.value || "20");
+    if(needed<=max) return;
+    buildSeqOptions(Math.ceil(needed/5)*5);
+  }
+
+  function nextSeqForDate(date){
+    const sameDay = logs.filter(x=>x.date===date);
+    const max = sameDay.reduce((m,x)=>Math.max(m, x.seq||0), 0);
+    return max+1;
+  }
+
+  function syncSeqAuto(force){
+    const date = elVisitDate.value || today;
+    const next = nextSeqForDate(date);
+    ensureSeqOptions(next);
+    if(force) elVisitSeqSelect.value = String(next);
+    elNextNoPill.textContent = "日内No: " + (elVisitSeqSelect.value || String(next));
+  }
+
+  function renderFactorStars(){
+    document.querySelectorAll('.stars[data-factor]').forEach(box=>{
+      const fid = box.getAttribute("data-factor");
+      box.innerHTML = "";
+
+      // 0（未実施）
+      const z = document.createElement("div");
+      z.className = "star zero" + (ratings[fid]===0 ? " active":"");
+      z.textContent = "0（未実施）";
+      z.addEventListener("click", () => setRating(fid, 0));
+      box.appendChild(z);
+
+      for(let i=1;i<=5;i++){
+        const b = document.createElement("div");
+        b.className = "star" + (ratings[fid]===i ? " active":"");
+        b.textContent = "★".repeat(i);
+        b.addEventListener("click", () => setRating(fid, i));
+        box.appendChild(b);
+      }
+    });
+    updatePills();
+  }
+
+  function setRating(fid, v){
+    ratings[fid] = v;
+    renderFactorStars();
+  }
+
+  function updatePills(){
+    document.getElementById("pill_time").textContent   = "評価: " + ratings.time;
+    document.getElementById("pill_issue").textContent  = "評価: " + ratings.issue;
+    document.getElementById("pill_family").textContent = "評価: " + ratings.family;
+    document.getElementById("pill_product").textContent= "評価: " + ratings.product;
+  }
+
+  function addLog(){
+    const date = elVisitDate.value || today;
+    const seq = Number(elVisitSeqSelect.value || nextSeqForDate(date));
+    const stayMinutes = Number(elStayMinutes.value || "0");
+
+    const approach = (elApproach.value || "").trim();
+    if(!approach){
+      toast("自由記述（要点）を入力してください。");
+      elApproach.focus();
+      return;
+    }
+
+    const contract = Number(elContract.value)===1 ? 1 : 0;
+    const memo = (elMemo.value || "").trim();
+    const tag = elQuickTag.value || "";
+
+    const item = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + "_" + Math.random().toString(16).slice(2),
+      date,
+      seq,
+      stayMinutes,
+      ratings: {
+        time: ratings.time,
+        issue: ratings.issue,
+        family: ratings.family,
+        product: ratings.product
+      },
+      approach,
+      contract,
+      memo,
+      tag,
+      createdAt: Date.now()
+    };
+
+    logs.push(item);
+    save();
+
+    toast(`追加：${date} No.${seq}`);
+    syncSeqAuto(true);
+
+    // reset inputs (keep date)
+    elStayMinutes.value = "0";
+    elApproach.value = "";
+    elMemo.value = "";
+    elContract.value = "0";
+    elQuickTag.value = "";
+    ratings.time = 0; ratings.issue=0; ratings.family=0; ratings.product=0;
+    renderFactorStars();
+
+    renderAll();
+  }
+
+  function resetForm(){
+    elStayMinutes.value = "0";
+    elApproach.value = "";
+    elMemo.value = "";
+    elContract.value = "0";
+    elQuickTag.value = "";
+    ratings.time = 0; ratings.issue=0; ratings.family=0; ratings.product=0;
+    renderFactorStars();
+    toast("入力をクリアしました。");
+  }
+
+  function renderAll(){
+    const filtered = applyFilters(logs);
+
+    // KPI
+    const visits = filtered.length;
+    const deals = filtered.filter(x=>x.contract===1).length;
+    const rate = visits ? (deals/visits*100) : 0;
+
+    // 4切り口の平均（未実施=0も含めた単純平均）
+    const avg4 = visits ? (
+      filtered.reduce((s,x)=>{
+        const r = x.ratings || {};
+        return s + (Number(r.time||0)+Number(r.issue||0)+Number(r.family||0)+Number(r.product||0))/4;
+      },0)/visits
+    ) : 0;
+
+    elKpiVisits.textContent = String(visits);
+    elKpiDeals.textContent = String(deals);
+    elKpiRate.textContent = (visits ? rate.toFixed(1) : "0.0") + "%";
+    elKpiAvg.textContent = visits ? avg4.toFixed(2) : "-";
+
+    elCountPill.textContent = logs.length + "件（表示: " + visits + "件）";
+
+    const stats = calcFactorStats(filtered);
+    renderFactorTable(stats, visits);
+    drawRadar(stats, visits);
+    renderList(filtered);
+
+    storageInfo();
+  }
+
+  function applyFilters(arr){
+    const from = elFromDate.value ? new Date(elFromDate.value + "T00:00:00") : null;
+    const to   = elToDate.value ? new Date(elToDate.value + "T23:59:59") : null;
+
+    const c = elFilterContract.value;
+    const minR = Number(elFilterMinRating.value || "0");
+    const factor = elFilterFactor.value;
+    const q = (elQ.value || "").trim().toLowerCase();
+
+    return arr.filter(x=>{
+      const dt = new Date(x.date + "T12:00:00");
+      if(from && dt < from) return false;
+      if(to && dt > to) return false;
+      if(c !== "all" && String(x.contract) !== c) return false;
+
+      if(q){
+        const blob = ((x.approach||"") + " " + (x.memo||"") + " " + (x.tag||"")).toLowerCase();
+        if(!blob.includes(q)) return false;
+      }
+
+      // 最低評価フィルタ（指定因子 or 全因子の最大値）
+      const r = x.ratings || {};
+      const map = {
+        time: Number(r.time||0),
+        issue:Number(r.issue||0),
+        family:Number(r.family||0),
+        product:Number(r.product||0),
+      };
+
+      if(factor !== "all"){
+        if(map[factor] < minR) return false;
+      }else{
+        // どれか1つでも minR を満たす（0含むは minR=0）
+        const maxv = Math.max(map.time, map.issue, map.family, map.product);
+        if(maxv < minR) return false;
+      }
+
+      return true;
+    });
+  }
+
+  function isRun(item, fid){
+    // 実施定義：
+    // - 滞在時間：minutes > 0 または評価>=1
+    // - それ以外：評価>=1
+    const r = item.ratings || {};
+    if(fid==="time"){
+      return (Number(item.stayMinutes||0) > 0) || (Number(r.time||0) >= 1);
+    }
+    return Number(r[fid]||0) >= 1;
+  }
+
+  function calcFactorStats(filtered){
+    const stats = {};
+    for(const f of FACTORS){
+      stats[f.id] = {
+        run:0, runRate:0,
+        sumRating:0, avgRating:0,
+        dealsInRun:0, successRateInRun:0
+      };
+    }
+    const total = filtered.length;
+
+    for(const item of filtered){
+      for(const f of FACTORS){
+        const ran = isRun(item, f.id);
+        if(ran){
+          stats[f.id].run += 1;
+          const rv = Number((item.ratings||{})[f.id] || 0);
+          stats[f.id].sumRating += rv;
+          if(item.contract===1) stats[f.id].dealsInRun += 1;
+        }
+      }
+    }
+
+    for(const f of FACTORS){
+      const s = stats[f.id];
+      s.runRate = total ? (s.run/total) : 0;
+      s.avgRating = s.run ? (s.sumRating/s.run) : 0;                 // 実施分だけ平均
+      s.successRateInRun = s.run ? (s.dealsInRun/s.run) : 0;         // 実施した訪問に限定
+    }
+    return stats;
+  }
+
+  function renderFactorTable(stats, totalVisits){
+    let html = `
+      <table>
+        <thead>
+          <tr>
+            <th>切り口</th>
+            <th class="right">実施回数</th>
+            <th class="right">実施率</th>
+            <th class="right">平均評価</th>
+            <th class="right">（実施時）成功率</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    for(const f of FACTORS){
+      const s = stats[f.id];
+      html += `
+        <tr>
+          <td><span class="tag warn">${escapeHtml(f.name)}</span></td>
+          <td class="right">${s.run}</td>
+          <td class="right">${totalVisits ? (s.runRate*100).toFixed(1)+"%" : "-"}</td>
+          <td class="right">${s.run ? s.avgRating.toFixed(2) : "-"}</td>
+          <td class="right">${s.run ? (s.successRateInRun*100).toFixed(1)+"%" : "-"}</td>
+        </tr>
+      `;
+    }
+    html += `</tbody></table>`;
+    elFactorTable.innerHTML = html;
+  }
+
+  function drawRadar(stats, totalVisits){
+    const canvas = elRadar;
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+
+    const cssWidth = canvas.clientWidth || 520;
+    const cssHeight = Math.round(cssWidth * 0.78);
+    canvas.style.height = cssHeight + "px";
+    canvas.width = Math.floor(cssWidth * dpr);
+    canvas.height = Math.floor(cssHeight * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    const W=cssWidth, H=cssHeight;
+    ctx.clearRect(0,0,W,H);
+
+    const pad=26, cx=W/2, cy=H/2+6, R=Math.min(W,H)/2 - pad;
+    const n = FACTORS.length;
+
+    // grid
+    ctx.lineWidth=1;
+    ctx.strokeStyle="rgba(0,0,0,0.08)";
+    ctx.fillStyle="rgba(47,124,246,0.03)";
+    const levels=4;
+    for(let lv=levels; lv>=1; lv--){
+      const r = R*(lv/levels);
+      const pts = polygonPoints(n,cx,cy,r,-Math.PI/2);
+      ctx.beginPath();
+      pts.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // axis
+    const axis = polygonPoints(n,cx,cy,R,-Math.PI/2);
+    ctx.strokeStyle="rgba(0,0,0,0.12)";
+    axis.forEach(p=>{
+      ctx.beginPath();
+      ctx.moveTo(cx,cy); ctx.lineTo(p.x,p.y); ctx.stroke();
+    });
+
+    // labels
+    ctx.fillStyle="rgba(12,27,51,0.92)";
+    ctx.font="12px system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP";
+    axis.forEach((p,i)=>{
+      const label = FACTORS[i].short;
+      const dx=p.x-cx, dy=p.y-cy;
+      const ox=dx*0.10, oy=dy*0.10;
+      ctx.textAlign = dx>10?"left":dx<-10?"right":"center";
+      ctx.textBaseline = dy>10?"top":dy<-10?"bottom":"middle";
+      ctx.fillText(label, p.x+ox, p.y+oy);
+    });
+
+    const runVals = FACTORS.map(f => clamp(stats[f.id].runRate,0,1));
+    const qualityVals = FACTORS.map(f => clamp((stats[f.id].avgRating||0)/5,0,1));
+    const successVals = FACTORS.map(f => clamp(stats[f.id].successRateInRun,0,1));
+
+    const mode = elRadarMode.value;
+
+    const drawSeries = (vals, stroke, fill) => {
+      const pts = valsToPolygon(vals,n,cx,cy,R,-Math.PI/2);
+      ctx.beginPath();
+      pts.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+      ctx.closePath();
+      ctx.lineWidth=2.4;
+      ctx.strokeStyle=stroke;
+      ctx.fillStyle=fill;
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle=stroke;
+      pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); });
+    };
+
+    if(mode==="run_x_quality"){
+      drawSeries(runVals, colorRun, alpha(colorRun,0.14));
+      drawSeries(qualityVals, colorQuality, alpha(colorQuality,0.14));
+    }else if(mode==="run"){
+      drawSeries(runVals, colorRun, alpha(colorRun,0.16));
+    }else if(mode==="quality"){
+      drawSeries(qualityVals, colorQuality, alpha(colorQuality,0.16));
+    }else{
+      drawSeries(successVals, colorSuccess, alpha(colorSuccess,0.16));
+    }
+
+    ctx.fillStyle="rgba(92,106,133,0.92)";
+    ctx.font="11px system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP";
+    ctx.textAlign="right"; ctx.textBaseline="bottom";
+    ctx.fillText(`表示中：${totalVisits||0}件`, W-10, H-8);
+  }
+
+  function renderList(filtered){
+    const by = groupByDate(filtered);
+    const dates = Object.keys(by).sort((a,b)=>b.localeCompare(a));
+    elListArea.innerHTML = "";
+    if(filtered.length===0){
+      elListArea.innerHTML = `<div class="note">該当データがありません。</div>`;
+      return;
+    }
+
+    for(const date of dates){
+      const dayLogs = by[date].sort((a,b)=>(a.seq-b.seq)||(a.createdAt-b.createdAt));
+      const dayDeals = dayLogs.filter(x=>x.contract===1).length;
+
+      const details = document.createElement("details");
+      details.className="day";
+      details.open = true;
+
+      const summary = document.createElement("summary");
+      summary.innerHTML = `
+        <div class="daymeta">
+          <span class="daytitle">${date}</span>
+          <span class="tag">訪問 ${dayLogs.length}</span>
+          <span class="tag ${dayDeals? "good":"bad"}">成功 ${dayDeals}</span>
+        </div>
+        <div class="small">タップで開閉</div>
+      `;
+
+      const list = document.createElement("div");
+      list.className="list";
+
+      for(const item of dayLogs){
+        const r = item.ratings || {};
+        const row = document.createElement("div");
+        row.className="item";
+
+        const left=document.createElement("div");
+        left.className="no";
+        left.textContent="No."+item.seq;
+
+        const right=document.createElement("div");
+        right.innerHTML = `
+          <div class="meta">
+            <span class="tag">滞在 ${Number(item.stayMinutes||0)}分</span>
+            <span class="tag warn">滞在評価 ${Number(r.time||0)}</span>
+            <span class="tag warn">課題 ${Number(r.issue||0)}</span>
+            <span class="tag warn">家族 ${Number(r.family||0)}</span>
+            <span class="tag warn">商品 ${Number(r.product||0)}</span>
+            ${item.contract===1 ? `<span class="tag good">成功</span>` : `<span class="tag bad">未成功</span>`}
+            ${item.tag ? `<span class="tag">${escapeHtml(item.tag)}</span>` : ``}
+          </div>
+          <div class="txt"><strong>要点：</strong>${escapeHtml(item.approach)}</div>
+          ${item.memo ? `<div class="txt"><strong>メモ：</strong>${escapeHtml(item.memo)}</div>` : ``}
+          <div class="actions">
+            <button class="secondary" data-act="edit" data-id="${item.id}" type="button">編集</button>
+            <button class="danger" data-act="del" data-id="${item.id}" type="button">削除</button>
+          </div>
+        `;
+
+        row.appendChild(left);
+        row.appendChild(right);
+        list.appendChild(row);
+      }
+
+      details.appendChild(summary);
+      details.appendChild(list);
+      elListArea.appendChild(details);
+    }
+
+    elListArea.querySelectorAll("button[data-act]").forEach(btn=>{
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const act = btn.getAttribute("data-act");
+        if(act==="del") delLog(id);
+        if(act==="edit") editLog(id);
+      });
+    });
+  }
+
+  function delLog(id){
+    const item = logs.find(x=>x.id===id);
+    if(!item) return;
+    if(!confirm(`削除しますか？\n${item.date} No.${item.seq}`)) return;
+    logs = logs.filter(x=>x.id!==id);
+    save();
+    toast("削除しました");
+    syncSeqAuto(true);
+    renderAll();
+  }
+
+  function editLog(id){
+    const item = logs.find(x=>x.id===id);
+    if(!item) return;
+    const r = item.ratings || {time:0,issue:0,family:0,product:0};
+
+    const newApproach = prompt("要点（自由記述）", item.approach || "");
+    if(newApproach === null) return;
+
+    const newMemo = prompt("メモ", item.memo || "");
+    if(newMemo === null) return;
+
+    const newStay = prompt("滞在時間（0/3/6/9/12/15）", String(item.stayMinutes||0));
+    if(newStay === null) return;
+
+    const nt = prompt("滞在評価（0〜5）", String(r.time||0)); if(nt===null) return;
+    const ni = prompt("課題ヒヤリング評価（0〜5）", String(r.issue||0)); if(ni===null) return;
+    const nf = prompt("家族ヒヤリング評価（0〜5）", String(r.family||0)); if(nf===null) return;
+    const np = prompt("商品説明評価（0〜5）", String(r.product||0)); if(np===null) return;
+
+    const newContract = confirm("成功（契約成立）にしますか？\nOK=成功 / キャンセル=未成功") ? 1 : 0;
+
+    item.approach = String(newApproach||"").trim();
+    item.memo = String(newMemo||"").trim();
+    item.stayMinutes = clampToSet(Number(newStay||0), [0,3,6,9,12,15]);
+    item.ratings = {
+      time: clamp(Number(nt||0),0,5),
+      issue: clamp(Number(ni||0),0,5),
+      family: clamp(Number(nf||0),0,5),
+      product: clamp(Number(np||0),0,5),
+    };
+    item.contract = newContract;
+
+    save();
+    toast("更新しました");
+    renderAll();
+  }
+
+  function exportJSON(){
+    const data = {version:2, exportedAt:new Date().toISOString(), logs};
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+    dl(blob, "visit_logs_export.json");
+    toast("JSONを出力しました");
+  }
+
+  function exportCSV(){
+    const BOM = "\uFEFF";
+    const header = [
+      "訪問日","訪問日内No","滞在時間(分)","滞在評価(0-5)","課題ヒヤリング評価(0-5)","家族ヒヤリング評価(0-5)","商品説明評価(0-5)",
+      "成功(1/0)","要点","メモ","クイックタグ","作成日時"
+    ];
+    const sorted = [...logs].sort((a,b)=> (a.date.localeCompare(b.date)) || (a.seq-b.seq) || (a.createdAt-b.createdAt));
+    const rows = sorted.map(x=>{
+      const r = x.ratings || {};
+      return [
+        x.date??"", x.seq??"", Number(x.stayMinutes||0),
+        Number(r.time||0), Number(r.issue||0), Number(r.family||0), Number(r.product||0),
+        x.contract??0, x.approach??"", x.memo??"", x.tag??"", x.createdAt ? new Date(x.createdAt).toISOString() : ""
+      ];
+    });
+    const csv = [header, ...rows].map(r=>r.map(csvEscape).join(",")).join("\r\n");
+    const blob = new Blob([BOM+csv], {type:"text/csv;charset=utf-8"});
+    dl(blob, `visit_logs_${toISODate(new Date())}.csv`);
+    toast("CSVを出力しました");
+  }
+
+  function csvEscape(v){
+    const s = String(v ?? "");
+    return /[",\r\n]/.test(s) ? `"${s.replaceAll('"','""')}"` : s;
+  }
+
+  async function importJSON(ev){
+    const f = ev.target.files?.[0];
+    ev.target.value = "";
+    if(!f) return;
+    try{
+      const text = await f.text();
+      const obj = JSON.parse(text);
+      const imported = Array.isArray(obj?.logs) ? obj.logs : (Array.isArray(obj) ? obj : null);
+      if(!imported) throw new Error("形式が不正です。");
+
+      const cleaned = imported
+        .filter(x=>x && typeof x.date==="string")
+        .map(x=>{
+          const r = x.ratings || {};
+          return {
+            id: x.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+"_"+Math.random().toString(16).slice(2)),
+            date: x.date,
+            seq: Number(x.seq)||1,
+            stayMinutes: clampToSet(Number(x.stayMinutes||0), [0,3,6,9,12,15]),
+            ratings: {
+              time: clamp(Number(r.time||0),0,5),
+              issue: clamp(Number(r.issue||0),0,5),
+              family: clamp(Number(r.family||0),0,5),
+              product: clamp(Number(r.product||0),0,5),
+            },
+            approach: String(x.approach||""),
+            contract: Number(x.contract)===1 ? 1 : 0,
+            memo: String(x.memo||""),
+            tag: x.tag ? String(x.tag) : "",
+            createdAt: Number(x.createdAt)||Date.now()
+          };
+        });
+
+      const map = new Map(logs.map(x=>[x.id,x]));
+      for(const x of cleaned) map.set(x.id,x);
+      logs = Array.from(map.values());
+
+      normalizeSeqPerDay();
+      save();
+      toast("JSONを取り込みました");
+      syncSeqAuto(true);
+      renderAll();
+    }catch(e){
+      alert("取込失敗：" + (e?.message || e));
+    }
+  }
+
+  function normalizeSeqPerDay(){
+    const by = groupByDate(logs);
+    for(const date of Object.keys(by)){
+      const arr = by[date].sort((a,b)=>(a.seq-b.seq)||(a.createdAt-b.createdAt));
+      arr.forEach((x,i)=>x.seq=i+1);
+    }
+  }
+
+  function wipeAll(){
+    if(!confirm("全データを削除しますか？")) return;
+    logs = [];
+    save();
+    toast("全削除しました");
+    syncSeqAuto(true);
+    renderAll();
+  }
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(KEY);
+      if(!raw) return [];
+      const arr = JSON.parse(raw);
+      if(!Array.isArray(arr)) return [];
+      // migrate (旧形式にratingsがない場合の保険)
+      return arr.map(x=>{
+        if(!x.ratings){
+          return {...x, stayMinutes: Number(x.stayMinutes||0), ratings:{time:0,issue:0,family:0,product:0}};
+        }
+        return x;
+      });
+    }catch{
+      return [];
+    }
+  }
+  function save(){ localStorage.setItem(KEY, JSON.stringify(logs)); }
+  function storageInfo(){
+    const raw = localStorage.getItem(KEY) || "[]";
+    const kb = (new Blob([raw]).size/1024);
+    elStorageInfo.textContent = `保存状況：${logs.length}件 / 約 ${kb.toFixed(1)} KB`;
+  }
+
+  function groupByDate(arr){
+    return arr.reduce((m,x)=>{
+      (m[x.date] ||= []).push(x);
+      return m;
+    }, {});
+  }
+
+  function dl(blob, filename){
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function toast(msg){
+    elToast.textContent = msg;
+    elToast.classList.add("show");
+    setTimeout(()=>elToast.classList.remove("show"), 1500);
+  }
+
+  function toISODate(date){
+    const y=date.getFullYear();
+    const m=String(date.getMonth()+1).padStart(2,"0");
+    const d=String(date.getDate()).padStart(2,"0");
+    return `${y}-${m}-${d}`;
+  }
+  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+  function clampToSet(n, set){
+    return set.includes(n) ? n : 0;
+  }
+  function escapeHtml(s){
+    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+  }
+  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function alpha(hexOrRgb, a){
+    const s=(hexOrRgb||"").trim();
+    if(s.startsWith("#") && s.length===7){
+      const r=parseInt(s.slice(1,3),16), g=parseInt(s.slice(3,5),16), b=parseInt(s.slice(5,7),16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    const m=s.match(/rgba?\(([^)]+)\)/);
+    if(m){
+      const p=m[1].split(",").map(x=>x.trim());
+      return `rgba(${p[0]},${p[1]},${p[2]},${a})`;
+    }
+    return `rgba(47,124,246,${a})`;
+  }
+
+  function polygonPoints(n, cx, cy, r, startAngle){
+    const pts=[];
+    for(let i=0;i<n;i++){
+      const a=startAngle + i*(Math.PI*2/n);
+      pts.push({x: cx+Math.cos(a)*r, y: cy+Math.sin(a)*r});
+    }
+    return pts;
+  }
+  function valsToPolygon(vals, n, cx, cy, R, startAngle){
+    const pts=[];
+    for(let i=0;i<n;i++){
+      const v=vals[i] ?? 0;
+      const r=R*v;
+      const a=startAngle + i*(Math.PI*2/n);
+      pts.push({x: cx+Math.cos(a)*r, y: cy+Math.sin(a)*r});
+    }
+    return pts;
+  }
+})();
+</script>
+</body>
+</html>
